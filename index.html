@@ -433,7 +433,7 @@ function clearRandomProgress(){ try{ localStorage.removeItem(randProgressKey());
 
 /* ===== 上云（路线2：GitHub Gist 存储进度，无后端）===== */
 const GIST_ID="6d56cee480b14141d660b9e93bfc2045";
-function gistToken(){ try{ return localStorage.getItem('quiz_gist_token')||''; }catch(e){ return ''; } }
+function gistToken(){ try{ return localStorage.getItem('law_gist_token')||''; }catch(e){ return ''; } }
 function syncHeaders(){ const h={}; const t=gistToken(); if(t) h['Authorization']='token '+t; return h; }
 function gistFileName(){ return "progress_"+(curUser||"guest")+".json"; }
 function fmtSync(ts){
@@ -457,11 +457,11 @@ let syncBusy=false, syncTimer=null;
 function syncStatus(t){ const e=document.getElementById('syncStat'); if(e) e.textContent=t; }
 function snapshotLocal(){
   const data={};
-  for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.indexOf('law_')===0) data[k]=localStorage.getItem(k); }
+  for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.indexOf('law_')===0 && k!=='law_user' && k!=='law_gist_token') data[k]=localStorage.getItem(k); }
   return JSON.stringify({v:1,ts:Date.now(),account:curUser||'',data:data});
 }
 function restoreLocal(json){
-  try{ const o=JSON.parse(json); if(o&&o.data){ Object.keys(o.data).forEach(k=>{ if(k.indexOf('law_')!==0) return; try{ localStorage.setItem(k,o.data[k]); }catch(e){} }); return true; } }catch(e){}
+  try{ const o=JSON.parse(json); if(o&&o.data){ Object.keys(o.data).forEach(k=>{ if(k.indexOf('law_')!==0 || k==='law_user' || k==='law_gist_token') return; try{ localStorage.setItem(k,o.data[k]); }catch(e){} }); return true; } }catch(e){}
   return false;
 }
 // 本机没有记住账号时，从云端各账号文件里找回最近使用的账号（account 字段）
@@ -513,7 +513,7 @@ function setGistToken(){ showTokenPanel(true); }
 function saveToken(){
   const i=document.getElementById('tokenInput'); const t=(i&&i.value||'').trim();
   if(!t){ syncStatus('请先粘贴 token'); return; }
-  try{ localStorage.setItem('quiz_gist_token', t); }catch(e){}
+  try{ localStorage.setItem('law_gist_token', t); }catch(e){}
   hideTokenPanel();
   if(curUser){ startSession(); }
   else if(!getUser()){
@@ -822,8 +822,8 @@ cw.addEventListener('touchend',e=>{ const dx=e.changedTouches[0].clientX-sx, dy=
 
 const BUILTIN_USERS=['jiaqu','syy'];
 let curUser=null;
-function getUser(){ const u=localStorage.getItem('quiz_user'); return u?u:''; }
-function setUser(u){ localStorage.setItem('quiz_user',u); curUser=u; updateUserChip(); }
+function getUser(){ const u=localStorage.getItem('law_user'); return u?u:''; }
+function setUser(u){ localStorage.setItem('law_user',u); curUser=u; updateUserChip(); }
 function updateUserChip(){ const c=document.getElementById('userChip'); if(c) c.textContent=curUser||''; }
 function showLogin(allowClose){ const b=document.getElementById('login'); if(b){ const x=document.getElementById('loginClose'); if(x) x.style.display=(allowClose||curUser)?'':'none'; b.classList.remove('hidden'); } }
 function hideLogin(){ const b=document.getElementById('login'); if(b){ b.classList.add('hidden'); const i=document.getElementById('loginInput'); if(i) i.value=''; } }
