@@ -414,6 +414,7 @@ function loadWrongStreak(){ try{ var s=localStorage.getItem(WRONG_STREAK_KEY); i
 function saveWrongStreak(){ try{ localStorage.setItem(WRONG_STREAK_KEY, JSON.stringify(wrongStreak||{})); }catch(e){} scheduleSync(); }
 
 /* ===== 随机出题会话（键 quiz_rand_<user>_v1，随 Gist 上云，不影响任何 quiz_ch* 章节进度）===== */
+const RAND_VERSION=2;   // 随机题组比例版本；升级后旧题组自动作废重抽
 function randProgressKey(){ return 'law_rand_'+(curUser||'guest')+'_v1'; }
 function saveRandomProgress(state){
   // 传入 state 用于刚生成时直接落盘；否则用全局状态
@@ -421,12 +422,12 @@ function saveRandomProgress(state){
   const st=state||{questions:q,status:status,sel:sel,revealed:revealed,idx:idx};
   if(!st||!st.questions||!st.questions.length) return;
   const done=st.status.length>0 && st.status.every(x=>x===1||x===2);
-  try{ localStorage.setItem(randProgressKey(), JSON.stringify({questions:st.questions,status:st.status,sel:st.sel,revealed:st.revealed,idx:st.idx,done:done})); }catch(e){}
+  try{ localStorage.setItem(randProgressKey(), JSON.stringify({questions:st.questions,status:st.status,sel:st.sel,revealed:st.revealed,idx:st.idx,done:done,version:RAND_VERSION})); }catch(e){}
   scheduleSync();
 }
 function loadRandomProgress(){
   try{ const s=localStorage.getItem(randProgressKey()); if(s){ const o=JSON.parse(s);
-    if(o&&o.questions&&o.questions.length){ o.done=!!(o.status&&o.status.every(x=>x===1||x===2)); return o; } } }catch(e){}
+    if(o&&o.questions&&o.questions.length && o.version===RAND_VERSION){ o.done=!!(o.status&&o.status.every(x=>x===1||x===2)); return o; } } }catch(e){}
   return null;
 }
 function clearRandomProgress(){ try{ localStorage.removeItem(randProgressKey()); }catch(e){} }
@@ -563,13 +564,13 @@ function renderMenu(){
   // 随机练习卡片：未答完显示进度，答完显示"重新出题"
   const rp=loadRandomProgress();
   const rn=(rp&&rp.status)?rp.status.filter(x=>x!==0).length:0;
-  const rdone=!!(rp&&rp.status&&rp.status.length===40&&rp.status.every(x=>x===1||x===2));
+  const rdone=!!(rp&&rp.status&&rp.status.length===55&&rp.status.every(x=>x===1||x===2));
   const rok=(rp&&rp.status)?rp.status.filter(x=>x===1).length:0;
   const re=document.createElement('div'); re.className='chapter ch-rand';
   re.innerHTML='<div class="ch-main" onclick="openRandom()">'+
-    '<div class="ch-name">随机练习<span class="badge">'+(rp?(rdone?'已完成':'已答 '+rn+'/40'):'40 题')+'</span></div>'+
-    '<div class="ch-meta">'+(rp?(rdone?('答对 '+rok+' 题'):'继续上次的随机练习'):'随机 20 单选 · 10 多选 · 10 判断')+'</div>'+
-    '<div class="ch-bar"><i style="width:'+(rp?Math.round(rn/40*100):0)+'%"></i></div></div>'+
+    '<div class="ch-name">随机练习<span class="badge">'+(rp?(rdone?'已完成':'已答 '+rn+'/55'):'55 题')+'</span></div>'+
+    '<div class="ch-meta">'+(rp?(rdone?('答对 '+rok+' 题'):'继续上次的随机练习'):'随机 30 单选 · 15 多选 · 10 判断')+'</div>'+
+    '<div class="ch-bar"><i style="width:'+(rp?Math.round(rn/55*100):0)+'%"></i></div></div>'+
     (rdone?'<button class="go" onclick="regenerateRandom()">重新出题</button>':'');
   box.appendChild(re);
   CH_ORDER.forEach(key=>{
@@ -644,7 +645,7 @@ function generateRandomSession(){
     });
   });
   const take=(arr,n)=>{ shuffle(arr); return arr.slice(0,n); };   // slice 前 N → 桶内天然不重复
-  const questions=take(buckets.single,20).concat(take(buckets.multi,10),take(buckets.judge,10));
+  const questions=take(buckets.single,30).concat(take(buckets.multi,15),take(buckets.judge,10));
   return {questions:questions, status:new Array(questions.length).fill(0),
           sel:new Array(questions.length).fill(null),
           revealed:new Array(questions.length).fill(false), idx:0, done:false};
@@ -668,9 +669,8 @@ function regenerateRandom(){
 }
 function resetChapter(key){
   const nm=(ALL[key]&&ALL[key].name)?ALL[key].name:'本章';
-  if(!confirm('确定要重置「'+nm+'」的答题进度吗？\n（该题的错题记录会一并清除，收藏夹不受影响）')) return;
+  if(!confirm('确定要重置「'+nm+'」的答题进度吗？\n（错题本中的该章错题会保留，收藏夹不受影响）')) return;
   try{ localStorage.removeItem('law_'+key); }catch(e){}
-  if(wrongSet){ [...wrongSet].forEach(id=>{ if(id.indexOf(key+'#')===0) wrongSet.delete(id); }); saveWrongSet(wrongSet); }
   if(wrongStreak){ Object.keys(wrongStreak).forEach(id=>{ if(id.indexOf(key+'#')===0) delete wrongStreak[id]; }); saveWrongStreak(); }
   if(curKey===key){ status=new Array(q.length).fill(0); sel=new Array(q.length).fill(null); revealed=new Array(q.length).fill(false); idx=0; render(); }
   renderMenu(); toast('已重置');
@@ -722,9 +722,9 @@ function render(){
     h+='<div class="explain"><b>解析：</b>'+esc(item.explain)+'</div>';
     h+='<button class="retry" onclick="retry()">重做本题</button>';
   }
-  if(isRandomMode && status.length===40 && status.every(x=>x===1||x===2)){
+  if(isRandomMode && status.length===55 && status.every(x=>x===1||x===2)){
     const _ok=status.filter(x=>x===1).length;
-    h+='<div class="rand-done">随机练习已完成 40 题 · 答对 '+_ok+' 题</div>';
+    h+='<div class="rand-done">随机练习已完成 55 题 · 答对 '+_ok+' 题</div>';
     h+='<button class="confirm" onclick="regenerateRandom()">重新出题</button>';
   }
   card.innerHTML=h;
